@@ -87,6 +87,7 @@ h1 span{color:var(--sun)}
 .card.done .lang{color:var(--ok)}
 .card.done .tag{opacity:1}
 .card.miss .front{animation:shake .35s}
+.card.wrong .front{border-color:#D9786E;box-shadow:inset 0 0 0 1.5px #D9786E}
 @keyframes shake{25%{transform:rotateY(180deg) translateX(-4px)}75%{transform:rotateY(180deg) translateX(4px)}}
 
 .win{background:var(--surface);border:1.5px solid var(--ok);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
@@ -235,7 +236,7 @@ h1 span{color:var(--sun)}
         <ul class="review" id="review"></ul>
       </div>
       <div class="board" id="board"></div>
-      <p class="hint">Найди пару: испанская фраза и её перевод. Изучаемое слово выделено жирным. Испанские карточки произносятся вслух, если браузер это умеет.</p>
+      <p class="hint">Найди пару: испанская фраза и её перевод. Изучаемое слово выделено жирным. Если пара не совпала, карточки остаются открытыми: нажмите на следующую карточку, и они закроются. Испанские карточки произносятся вслух, если браузер это умеет.</p>
     </div>
   </section>
 </div>
@@ -272,7 +273,7 @@ function saveDecks(){ try{ localStorage.setItem("memo-es-decks", JSON.stringify(
 const deckItems = d => d.items.map(id=>BY_ID.get(id)).filter(Boolean);
 const plural = (n,a,b,c)=>{const m=n%10,h=n%100; return n+" "+(m===1&&h!==11?a:(m>=2&&m<=4&&(h<12||h>14)?b:c));};
 try{ Object.assign(st, JSON.parse(localStorage.getItem("memo-es-v2")||"{}")); }catch(e){}
-let first=null, lock=false, moves=0, found=0, t0=0, timer=null, dealt=[];
+let first=null, moves=0, found=0, t0=0, timer=null, dealt=[];
 
 function save(){ try{ localStorage.setItem("memo-es-v2", JSON.stringify(st)); }catch(e){} }
 function esc(s){ return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -484,13 +485,26 @@ function newGame(){
     el.onclick=()=>flip(el,c);
     board.appendChild(el);
   });
-  first=null; lock=false; moves=0; found=0;
+  first=null; pending=null; moves=0; found=0;
   $("moves").textContent=0; $("found").textContent=0; $("total").textContent=dealt.length;
   $("win").hidden=true; clearInterval(timer); timer=null; $("time").textContent="0:00";
   summary();
 }
+// A wrong pair stays open until the player taps the next card
+let pending=null;
+function closePending(){
+  if(!pending) return;
+  pending.forEach(x=>{ x.classList.remove("open","miss","wrong"); x.setAttribute("aria-label","Закрытая карточка"); });
+  pending=null;
+}
 function flip(el,c){
-  if(lock || el.classList.contains("open") || el.classList.contains("done")) return;
+  if(el.classList.contains("done")) return;
+  if(pending){
+    const wasPending=pending.includes(el);
+    closePending();
+    if(wasPending) return;   // tapping one of the wrong pair just closes them
+  }
+  if(el.classList.contains("open")) return;
   if(!timer){ t0=Date.now(); timer=setInterval(tick,1000); }
   el.classList.add("open"); el.setAttribute("aria-label", c.text);
   if(c.lang==="es") speak(c.text);
@@ -502,12 +516,8 @@ function flip(el,c){
     found++; $("found").textContent=found;
     if(found===dealt.length) finish();
   } else {
-    lock=true;
-    a.classList.add("miss"); b.classList.add("miss");
-    setTimeout(()=>{
-      [a,b].forEach(x=>{ x.classList.remove("open","miss"); x.setAttribute("aria-label","Закрытая карточка"); });
-      lock=false;
-    }, 1100);
+    a.classList.add("miss","wrong"); b.classList.add("miss","wrong");
+    pending=[a,b];
   }
 }
 function finish(){

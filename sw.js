@@ -1,5 +1,5 @@
 // Memo Español: работа без интернета. При изменении игры увеличьте номер версии.
-const CACHE = "memo-es-v6";
+const CACHE = "memo-es-v7";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
